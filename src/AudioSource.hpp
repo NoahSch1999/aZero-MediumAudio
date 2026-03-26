@@ -1,7 +1,18 @@
 #pragma once
-#include <stdexcept>
 #include <memory>
 #include "miniaudio.h"
+
+/* TODO:
+	- Check so ::SetRange() is correct
+	- Implement support for AudioSource mixing/groups
+	- Wrap the following: 
+						ma_sound_set_cone
+						ma_sound_set_attenuation_model
+						ma_sound_set_rolloff
+						ma_sound_set_min_gain
+						ma_sound_set_max_gain
+						ma_sound_set_doppler_factor
+*/
 
 namespace aZero::Audio {
 	class AudioSource {
@@ -13,15 +24,14 @@ namespace aZero::Audio {
 		AudioSource(ma_engine* engine)
 			:m_Engine(engine) { }
 
-		AudioSource(ma_engine* engine, std::string_view path) 
+		AudioSource(ma_engine* engine, std::string_view path, bool shouldStream) 
 			:m_Engine(engine) {
-			this->FromFile(path);
+			this->FromFile(path, shouldStream);
 		}
 
 		~AudioSource() {
 			this->Free();
 		}
-
 
 		AudioSource(AudioSource&& other) noexcept {
 			*this = std::move(other);
@@ -30,6 +40,7 @@ namespace aZero::Audio {
 		AudioSource& operator=(AudioSource&& other) noexcept {
 			std::swap(m_Sound, other.m_Sound);
 			std::swap(m_Engine, other.m_Engine);
+			std::swap(m_ShouldStream, other.m_ShouldStream);
 			return *this;
 		}
 
@@ -70,7 +81,6 @@ namespace aZero::Audio {
 			ma_sound_set_position(m_Sound.get(), x, y, z);
 		}
 
-		// TODO: Correct?
 		void SetRange(float range) {
 			ma_sound_set_min_distance(m_Sound.get(), 0);
 			ma_sound_set_max_distance(m_Sound.get(), range);
@@ -88,28 +98,24 @@ namespace aZero::Audio {
 			ma_sound_set_velocity(m_Sound.get(), x, y, z);
 		}
 
-		AudioSource CreateInstance() {
+		std::optional<AudioSource> CreateInstance() {
+			if (m_ShouldStream) {
+				return {};
+			}
 			AudioSource source(m_Engine);
 			source.m_Sound = std::make_unique<ma_sound>();
 			ma_sound_init_copy(m_Engine, m_Sound.get(), 0, nullptr, source.m_Sound.get());
 			return source;
 		}
 
-		bool Load(std::string_view path) {
+		bool Load(std::string_view path, bool shouldStream) {
 			if (!m_Engine) return false;
-			return this->FromFile(path);
+			return this->FromFile(path, shouldStream);
 		}
 
 		bool IsPlaying() const {
 			return ma_sound_is_playing(m_Sound.get());
 		}
-
-		// ma_sound_set_cone
-		// ma_sound_set_attenuation_model
-		// ma_sound_set_rolloff
-		// ma_sound_set_min_gain
-		// ma_sound_set_max_gain
-		// ma_sound_set_doppler_factor
 
 	private:
 		void Free() {
@@ -118,15 +124,16 @@ namespace aZero::Audio {
 			}
 		}
 
-		bool FromFile(std::string_view path)
-		{
+		bool FromFile(std::string_view path, bool shouldStream) {
 			ma_result result;
 
 			this->Free();
 
 			m_Sound = std::make_unique<ma_sound>();
 
-			result = ma_sound_init_from_file(m_Engine, path.data(), 0, NULL, NULL, m_Sound.get());
+			m_ShouldStream = shouldStream;
+			
+			result = ma_sound_init_from_file(m_Engine, path.data(), m_ShouldStream ? ma_sound_flags::MA_SOUND_FLAG_STREAM : NULL, NULL, NULL, m_Sound.get());
 			if (result != MA_SUCCESS) {
 				return false;
 			}
@@ -135,5 +142,6 @@ namespace aZero::Audio {
 
 		std::unique_ptr<ma_sound> m_Sound;
 		ma_engine* m_Engine = nullptr;
+		bool m_ShouldStream = false;
 	};
 }

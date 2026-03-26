@@ -3,6 +3,11 @@
 #include <optional>
 #include "AudioSource.hpp"
 
+/* TODO:
+	- Wrap ma_engine_listener_set_cone
+	- Implement support for multiple listeners
+*/
+
 namespace aZero::Audio {
 	class AudioEngine {
 	public:
@@ -10,8 +15,7 @@ namespace aZero::Audio {
 		AudioEngine& operator=(const AudioEngine&) = delete;
 
 		AudioEngine() 
-			:m_Engine(std::make_unique<ma_engine>())
-		{
+			:m_Engine(std::make_unique<ma_engine>()) {
 			ma_result result = ma_engine_init(NULL, m_Engine.get());
 			if (result != MA_SUCCESS) {
 				throw std::runtime_error("Failed to create audio engine");
@@ -33,14 +37,14 @@ namespace aZero::Audio {
 			}
 		}
 
-		std::optional<AudioSource> CreateSourceFromFile(std::string_view path) { // TODO: Cache loaded so we dont need to read from file every time
+		std::optional<AudioSource> CreateFromFile(std::string_view path, bool shouldStream) {
 			AudioSource source(m_Engine.get());
-			if (source.Load(path))
+			if (source.Load(path, shouldStream))
 				return source;
 			return {};
 		}
 
-		AudioSource CreateSource() {
+		AudioSource CreateEmpty() {
 			return AudioSource(m_Engine.get());
 		}
 
@@ -59,8 +63,6 @@ namespace aZero::Audio {
 		void SetListenerUp(float x, float y, float z) {
 			ma_engine_listener_set_world_up(m_Engine.get(), 0, x, y, z);
 		}
-
-		// ma_engine_listener_set_cone
 
 	private:
 		std::unique_ptr<ma_engine> m_Engine;
