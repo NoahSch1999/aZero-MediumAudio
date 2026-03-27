@@ -36,7 +36,7 @@ FetchContent_MakeAvailable(miniaudio)
 
 target_include_directories(aZeroAudio
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_BINARY_DIR}/_deps/miniaudio-src
 )
 
